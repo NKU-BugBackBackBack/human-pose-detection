@@ -15,7 +15,7 @@ def to_cpu(tensor):
 
 def load_classes(path):
     """
-    Loads class labels at 'path'
+    在'path'处加载类标签
     """
     fp = open(path, "r")
     names = fp.read().split("\n")[:-1]
@@ -32,15 +32,15 @@ def weights_init_normal(m):
 
 
 def rescale_boxes(boxes, current_dim, original_shape):
-    """ Rescales bounding boxes to the original shape """
+    """ 将边界框bounding box调整为初始形状 """
     orig_h, orig_w = original_shape
-    # The amount of padding that was added
+    # 填充量（添加灰度条以防失真）
     pad_x = max(orig_h - orig_w, 0) * (current_dim / max(original_shape))
     pad_y = max(orig_w - orig_h, 0) * (current_dim / max(original_shape))
-    # Image height and width after padding is removed
+    # 取消填充后的图像高度和宽度
     unpad_h = current_dim - pad_y
     unpad_w = current_dim - pad_x
-    # Rescale bounding boxes to dimension of original image
+    # 重新缩放bounding box以标注原始图像的尺寸
     boxes[:, 0] = ((boxes[:, 0] - pad_x // 2) / unpad_w) * orig_w
     boxes[:, 1] = ((boxes[:, 1] - pad_y // 2) / unpad_h) * orig_h
     boxes[:, 2] = ((boxes[:, 2] - pad_x // 2) / unpad_w) * orig_w
@@ -58,15 +58,15 @@ def xywh2xyxy(x):
 
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
-    """ Compute the average precision, given the recall and precision curves.
+    """ 给出召回率和精确率，计算平均精确率。
     Source: https://github.com/rafaelpadilla/Object-Detection-Metrics.
     # Arguments
-        tp:    True positives (list).
-        conf:  Objectness value from 0-1 (list).
-        pred_cls: Predicted object classes (list).
-        target_cls: True object classes (list).
+        tp:    正样本 (list类型).
+        conf:  目标值范围为0-1 (list类型).
+        pred_cls: 预测对象类 (list类型).
+        target_cls: 真正的对象类 (list类型).
     # Returns
-        The average precision as computed in py-faster-rcnn.
+        py-faster-rcnn中计算的平均精确率。
     """
     # Sort by objectness
     i = np.argsort(-conf)
@@ -112,13 +112,13 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
 
 
 def compute_ap(recall, precision):
-    """ Compute the average precision, given the recall and precision curves.
-    Code originally from https://github.com/rbgirshick/py-faster-rcnn.
+    """ 给定召回率和精确率，计算平均精确率。
+    代码来源于 https://github.com/rbgirshick/py-faster-rcnn.
     # Arguments
-        recall:    The recall curve (list).
-        precision: The precision curve (list).
+        recall:    召回率 (list类型).
+        precision: 精确率 (list类型).
     # Returns
-        The average precision as computed in py-faster-rcnn.
+        py-faster-rcnn中计算的平均精确率。
     """
     # correct AP calculation
     # first append sentinel values at the end
@@ -139,7 +139,7 @@ def compute_ap(recall, precision):
 
 
 def get_batch_statistics(outputs, targets, iou_threshold):
-    """ Compute true positives, predicted scores and predicted labels per sample """
+    """ 计算每个样本的正样本、预测分数、预测标签 """
     batch_metrics = []
     for sample_i in range(len(outputs)):
 
@@ -188,29 +188,29 @@ def bbox_wh_iou(wh1, wh2):
 
 def bbox_iou(box1, box2, x1y1x2y2=True):
     """
-    Returns the IoU of two bounding boxes
+    计算两个bounding box的IOU（重复度）
     """
     if not x1y1x2y2:
-        # Transform from center and width to exact coordinates
+        # 把图像的中心和宽度换算成精确的坐标
         b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
         b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
         b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
         b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
     else:
-        # Get the coordinates of bounding boxes
+        # 获取bounding box的坐标
         b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
         b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
 
-    # get the corrdinates of the intersection rectangle
+    # 获取相互相交矩形的坐标
     inter_rect_x1 = torch.max(b1_x1, b2_x1)
     inter_rect_y1 = torch.max(b1_y1, b2_y1)
     inter_rect_x2 = torch.min(b1_x2, b2_x2)
     inter_rect_y2 = torch.min(b1_y2, b2_y2)
-    # Intersection area
+    # 相交区域
     inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * torch.clamp(
         inter_rect_y2 - inter_rect_y1 + 1, min=0
     )
-    # Union Area
+    # 联合区域
     b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
     b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
 
@@ -221,35 +221,34 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
 
 def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
     """
-    Removes detections with lower object confidence score than 'conf_thres' and performs
-    Non-Maximum Suppression to further filter detections.
-    Returns detections with shape:
-        (x1, y1, x2, y2, object_conf, class_score, class_pred)
+    删除置信度分数小于conf_thres的bounding box
+    并执行非极大抑制筛选以进一步过滤
+    返回的检测具有的信息：(x1, y1, x2, y2, object_conf, class_score, class_pred)
     """
-    # From (center x, center y, width, height) to (x1, y1, x2, y2)
+    # 将(center x, center y, width, height) 换算为 (x1, y1, x2, y2)
     prediction[..., :4] = xywh2xyxy(prediction[..., :4])
     output = [None for _ in range(len(prediction))]
     for image_i, image_pred in enumerate(prediction):
-        # Filter out confidence scores below threshold
+        # 删除置信度分数低于阈值的bounding box
         image_pred = image_pred[image_pred[:, 4] >= conf_thres]
-        # If none are remaining => process next image
+        # 没有剩余的bounding box则处理下一个
         if not image_pred.size(0):
             continue
-        # Object confidence times class confidence
+        # 置信度乘法计算
         score = image_pred[:, 4] * image_pred[:, 5:].max(1)[0]
-        # Sort by it
+        # 根据计算结果进行排序
         image_pred = image_pred[(-score).argsort()]
         class_confs, class_preds = image_pred[:, 5:].max(1, keepdim=True)
         detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float()), 1)
-        # Perform non-maximum suppression
+        # 执行非极大抑制
         keep_boxes = []
         while detections.size(0):
             large_overlap = bbox_iou(detections[0, :4].unsqueeze(0), detections[:, :4]) > nms_thres
             label_match = detections[0, -1] == detections[:, -1]
-            # Indices of boxes with lower confidence scores, large IOUs and matching labels
+            # 置信度较低、重复区域很大和匹配标签的bounding box的索引
             invalid = large_overlap & label_match
             weights = detections[invalid, 4:5]
-            # Merge overlapping bboxes by order of confidence
+            # 按照置信度的顺序合并bounding box
             detections[0, :4] = (weights * detections[invalid, :4]).sum(0) / weights.sum()
             keep_boxes += [detections[0]]
             detections = detections[~invalid]
@@ -268,7 +267,7 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     nC = pred_cls.size(-1)
     nG = pred_boxes.size(2)
 
-    # Output tensors
+    # 输出张量
     obj_mask = ByteTensor(nB, nA, nG, nG).fill_(0)
     noobj_mask = ByteTensor(nB, nA, nG, nG).fill_(1)
     class_mask = FloatTensor(nB, nA, nG, nG).fill_(0)
@@ -279,35 +278,35 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     th = FloatTensor(nB, nA, nG, nG).fill_(0)
     tcls = FloatTensor(nB, nA, nG, nG, nC).fill_(0)
 
-    # Convert to position relative to box
+    # 换算为相对于bounding box的位置
     target_boxes = target[:, 2:6] * nG
     gxy = target_boxes[:, :2]
     gwh = target_boxes[:, 2:]
-    # Get anchors with best iou
+    # 获取最低重复度的集合
     ious = torch.stack([bbox_wh_iou(anchor, gwh) for anchor in anchors])
     best_ious, best_n = ious.max(0)
-    # Separate target values
+    # 分割目标值
     b, target_labels = target[:, :2].long().t()
     gx, gy = gxy.t()
     gw, gh = gwh.t()
     gi, gj = gxy.long().t()
-    # Set masks
+    # 设置masks
     obj_mask[b, best_n, gj, gi] = 1
     noobj_mask[b, best_n, gj, gi] = 0
 
-    # Set noobj mask to zero where iou exceeds ignore threshold
+    # 如果重复度IOU超过阈值，将noobj mask设置为零
     for i, anchor_ious in enumerate(ious.t()):
         noobj_mask[b[i], anchor_ious > ignore_thres, gj[i], gi[i]] = 0
 
-    # Coordinates
+    # 坐标
     tx[b, best_n, gj, gi] = gx - gx.floor()
     ty[b, best_n, gj, gi] = gy - gy.floor()
-    # Width and height
+    # 宽度和高度
     tw[b, best_n, gj, gi] = torch.log(gw / anchors[best_n][:, 0] + 1e-16)
     th[b, best_n, gj, gi] = torch.log(gh / anchors[best_n][:, 1] + 1e-16)
-    # One-hot encoding of label
+    # 标签的一次热编码
     tcls[b, best_n, gj, gi, target_labels] = 1
-    # Compute label correctness and iou at best anchor
+    # 计算标签的正确性和最好的集合中的重复度
     class_mask[b, best_n, gj, gi] = (pred_cls[b, best_n, gj, gi].argmax(-1) == target_labels).float()
     iou_scores[b, best_n, gj, gi] = bbox_iou(pred_boxes[b, best_n, gj, gi], target_boxes, x1y1x2y2=False)
 
@@ -316,14 +315,14 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
 
 
 def parse_model_config(path):
-    """Parses the yolo-v3 layer configuration file and returns module definitions"""
+    """解析YOLOv3层配置文件闭关返回模块的定义"""
     file = open(path, 'r')
     lines = file.read().split('\n')
     lines = [x for x in lines if x and not x.startswith('#')]
-    lines = [x.rstrip().lstrip() for x in lines]  # get rid of fringe whitespaces
+    lines = [x.rstrip().lstrip() for x in lines]  # 去掉边缘的空格
     module_defs = []
     for line in lines:
-        if line.startswith('['):  # This marks the start of a new block
+        if line.startswith('['):  # 开始一个新的模块
             module_defs.append({})
             module_defs[-1]['type'] = line[1:-1].rstrip()
             if module_defs[-1]['type'] == 'convolutional':
@@ -337,7 +336,7 @@ def parse_model_config(path):
 
 
 def parse_data_config(path):
-    """Parses the data configuration file"""
+    """解析数据配置文件"""
     options = dict()
     options['gpus'] = '0,1,2,3'
     options['num_workers'] = '10'
@@ -391,7 +390,7 @@ class AverageValueMeter(object):
         if self.n == 0:
             self.mean, self.std = np.nan, np.nan
         elif self.n == 1:
-            self.mean = 0.0 + self.sum  # This is to force a copy in torch/numpy
+            self.mean = 0.0 + self.sum  # 在torch/numpy进行强制复制
             self.std = np.inf
             self.mean_old = self.mean
             self.m_s = 0.0

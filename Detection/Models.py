@@ -8,7 +8,7 @@ from .Utils import build_targets, to_cpu, parse_model_config
 
 def create_modules(module_defs):
     """
-    Constructs module list of layer blocks from module configuration in module_defs
+    为各层的block从modele_defs的模块配置中构建模块列表
     """
     hyperparams = module_defs.pop(0)
     output_filters = [int(hyperparams["channels"])]  # [3]
@@ -60,16 +60,13 @@ def create_modules(module_defs):
 
         elif module_def["type"] == "yolo":
             anchor_idxs = [int(x) for x in module_def["mask"].split(",")]
-            # Extract anchors
             anchors = [int(x) for x in module_def["anchors"].split(",")]
             anchors = [(anchors[i], anchors[i + 1]) for i in range(0, len(anchors), 2)]
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def["classes"])
             img_size = int(hyperparams["height"])
-            # Define detection layer
             yolo_layer = YOLOLayer(anchors, num_classes, img_size)
             modules.add_module(f"yolo_{module_i}", yolo_layer)
-        # Register module list and number of output filters
         module_list.append(modules)
         output_filters.append(filters)
 
@@ -77,7 +74,7 @@ def create_modules(module_defs):
 
 
 class Upsample(nn.Module):
-    """ nn.Upsample is deprecated """
+    """ 不建议使用nn.Unsample """
     def __init__(self, scale_factor, mode="nearest"):
         super(Upsample, self).__init__()
         self.scale_factor = scale_factor
@@ -89,13 +86,13 @@ class Upsample(nn.Module):
 
 
 class EmptyLayer(nn.Module):
-    """Placeholder for 'route' and 'shortcut' layers"""
+    """'route' 和 'shortcut' 层的占位符"""
     def __init__(self):
         super(EmptyLayer, self).__init__()
 
 
 class YOLOLayer(nn.Module):
-    """Detection layer"""
+    """检测层"""
     def __init__(self, anchors, num_classes, img_dim=416):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
@@ -108,7 +105,7 @@ class YOLOLayer(nn.Module):
         self.noobj_scale = 100
         self.metrics = {}
         self.img_dim = img_dim
-        self.grid_size = 0  # grid size
+        self.grid_size = 0  # 网格的大小
 
     def compute_grid_offsets(self, grid_size, cuda=True):
         self.grid_size = grid_size
@@ -123,7 +120,7 @@ class YOLOLayer(nn.Module):
         self.anchor_h = self.scaled_anchors[:, 1:2].view((1, self.num_anchors, 1, 1))
 
     def forward(self, x, targets=None, img_dim=None):
-        # Tensors for cuda support
+        # CUDA支持的Tensor
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
         ByteTensor = torch.cuda.ByteTensor if x.is_cuda else torch.ByteTensor
@@ -138,19 +135,19 @@ class YOLOLayer(nn.Module):
             .contiguous()
         )
 
-        # Get outputs
+        # 获取输出
         x = torch.sigmoid(prediction[..., 0])  # Center x
         y = torch.sigmoid(prediction[..., 1])  # Center y
         w = prediction[..., 2]  # Width
         h = prediction[..., 3]  # Height
-        pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
-        pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
+        pred_conf = torch.sigmoid(prediction[..., 4])  # 置信度Conf
+        pred_cls = torch.sigmoid(prediction[..., 5:])  # 预测
 
-        # If grid size does not match current we compute new offsets
+        # 如果格网大小与当前不匹配，则计算新的偏移量
         if grid_size != self.grid_size:
             self.compute_grid_offsets(grid_size, cuda=x.is_cuda)
 
-        # Add offset and scale with anchors
+        # 添加偏移量和尺寸
         pred_boxes = FloatTensor(prediction[..., :4].shape)
         pred_boxes[..., 0] = x.data + self.grid_x
         pred_boxes[..., 1] = y.data + self.grid_y
@@ -177,7 +174,7 @@ class YOLOLayer(nn.Module):
                 ignore_thres=self.ignore_thres,
             )
 
-            # Loss : Mask outputs to ignore non-existing objects (except with conf. loss)
+            # 屏蔽输出以忽略不存在的对象(使用conf.损失)
             loss_x = self.mse_loss(x[obj_mask.bool()], tx[obj_mask.bool()])
             loss_y = self.mse_loss(y[obj_mask.bool()], ty[obj_mask.bool()])
             loss_w = self.mse_loss(w[obj_mask.bool()], tw[obj_mask.bool()])
@@ -188,7 +185,7 @@ class YOLOLayer(nn.Module):
             loss_cls = self.bce_loss(pred_cls[obj_mask.bool()], tcls[obj_mask.bool()])
             total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
-            # Metrics
+            # 度量
             cls_acc = 100 * class_mask[obj_mask.bool()].mean()
             conf_obj = pred_conf[obj_mask.bool()].mean()
             conf_noobj = pred_conf[noobj_mask.bool()].mean()
@@ -252,15 +249,15 @@ class Darknet(nn.Module):
         return yolo_outputs if targets is None else (loss, yolo_outputs)
 
     def load_darknet_weights(self, weights_path):
-        """Parses and loads the weights stored in 'weights_path'"""
-        # Open the weights file
+        """解析并加载权重文件'"""
+        # 打开权重文件
         with open(weights_path, "rb") as f:
-            header = np.fromfile(f, dtype=np.int32, count=5)  # First five are header values
-            self.header_info = header  # Needed to write header when saving weights
-            self.seen = header[3]  # number of images seen during training
-            weights = np.fromfile(f, dtype=np.float32)  # The rest are weights
+            header = np.fromfile(f, dtype=np.int32, count=5)  # 前五个使header values
+            self.header_info = header  # 保存权重时需要写header
+            self.seen = header[3]  # 训练期间的图像数量
+            weights = np.fromfile(f, dtype=np.float32)  # 剩下部分是权重
 
-        # Establish cutoff for loading backbone weights
+        # 建立加载主干权重的截止点
         cutoff = None
         if "darknet53.conv.74" in weights_path:
             cutoff = 75
@@ -272,7 +269,7 @@ class Darknet(nn.Module):
             if module_def["type"] == "convolutional":
                 conv_layer = module[0]
                 if module_def["batch_normalize"]:
-                    # Load BN bias, weights, running mean and running variance
+                    # 加载BN bias, weights, running mean和running variance
                     bn_layer = module[1]
                     num_b = bn_layer.bias.numel()  # Number of biases
                     # Bias
@@ -305,18 +302,17 @@ class Darknet(nn.Module):
 
     def save_darknet_weights(self, path, cutoff=-1):
         """
-            @:param path    - path of the new weights file
-            @:param cutoff  - save layers between 0 and cutoff (cutoff = -1 -> all are saved)
+            @:param path    - 权重文件的路径
+            @:param cutoff  - 保存0-截止值的层 (截止至 = -1 ->全部保存)
         """
         fp = open(path, "wb")
         self.header_info[3] = self.seen
         self.header_info.tofile(fp)
 
-        # Iterate through layers
+        # 在各层间迭代
         for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
             if module_def["type"] == "convolutional":
                 conv_layer = module[0]
-                # If batch norm, load bn first
                 if module_def["batch_normalize"]:
                     bn_layer = module[1]
                     bn_layer.bias.data.cpu().numpy().tofile(fp)
