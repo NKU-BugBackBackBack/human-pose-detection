@@ -16,10 +16,11 @@ class TinyYOLOv3_onecls(object):
         input_size: (int)输入图像尺寸,必须是32的倍数
         config_file: (str) Yolo模型结构的config file路径
         weight_file: (str) 训练权重的文件路径
-        nms: (float) Non-Maximum Suppression overlap threshold.,非极大值抑制nms的threshold
-        conf_thres: (float) Minimum Confidence threshold of predicted bboxs to cut off.   #bbox->Bounding Box边界框
+        nms: (float) 非极大值抑制nms的threshold
+        conf_thres: 得分框重复度的阈值   #bbox->Bounding Box边界框
         device: (str) 跑模型的设备'cpu' or 'cuda'.
     """
+
     def __init__(self,
                  input_size=416,
                  config_file='Models/yolo-tiny-onecls/yolov3-tiny-onecls.cfg',
@@ -40,16 +41,15 @@ class TinyYOLOv3_onecls(object):
         self.transf_fn = transforms.ToTensor()  # [h,w,c]->[c,h,w] 并把0-255 压缩到0-1
 
     def detect(self, image, need_resize=True, expand_bb=5):
-        """Feed forward to the model.
+        """反馈给模型.
         Args:
-            image: (numpy array) Single RGB image to detect.,
-            need_resize: (bool) Resize to input_size before feed and will return bboxs
-                with scale to image original size.,
-            expand_bb: (int) Expand boundary of the boxs.
+            image: 需要检测的单张RGB图像(numpy array的形式) ,
+            need_resize: 将输入的图片调整至指定大小(bool型) ,
+            expand_bb: 拓展bbox的边框(int型).
         Returns:
-            (torch.float32) Of each detected object contain a
-                [top, left, bottom, right, bbox_score, class_score, class]
-            return `None` if no detected.
+            返回类型值为torch.float32
+            每一个检测的目标都包含了下列指标[top, left, bottom, right, bbox_score, class_score, class]
+            若未检测到，则返回‘None’
         """
         image_size = (self.input_size, self.input_size)
         if need_resize:
@@ -108,10 +108,3 @@ class ThreadDetection(object):
 
     def __len__(self):
         return self.Q.qsize()
-
-
-
-
-
-
-
